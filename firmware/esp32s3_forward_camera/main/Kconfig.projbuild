@@ -1,0 +1,87 @@
+menu "Camera board selection"
+
+choice CAMERA_BOARD_CHOICE
+    prompt "Camera board"
+    default CAMERA_BOARD_ESP32CAM_AITHINKER if IDF_TARGET_ESP32
+    default CAMERA_BOARD_ESP32S3_WROOM if IDF_TARGET_ESP32S3
+    help
+        Select the board pin mapping used by esp32-camera.
+
+config CAMERA_BOARD_WROVER_KIT
+    bool "ESP32 WROVER-KIT"
+    depends on IDF_TARGET_ESP32
+
+config CAMERA_BOARD_ESP32CAM_AITHINKER
+    bool "ESP32-CAM (AI Thinker)"
+    depends on IDF_TARGET_ESP32
+
+config CAMERA_BOARD_ESP32S3_WROOM
+    bool "ESP32-S3 WROOM camera board"
+    depends on IDF_TARGET_ESP32S3
+
+config CAMERA_BOARD_ESP32S3_GOOUUU
+    bool "ESP32-S3 GOOUUU TECH"
+    depends on IDF_TARGET_ESP32S3
+
+config CAMERA_BOARD_ESP32S3_XIAO
+    bool "Seeed XIAO ESP32S3 + camera"
+    depends on IDF_TARGET_ESP32S3
+
+endchoice
+
+endmenu
+
+menu "WiFi configuration"
+
+choice WIFI_ROLE
+    prompt "Wi-Fi role"
+    default WIFI_ROLE_STA
+    help
+        AP: this device creates the Wi-Fi hotspot (flash exactly one ESP32 as AP).
+        STA: this device joins an existing network or the AP ESP32's hotspot.
+
+config WIFI_ROLE_AP
+    bool "Access Point (create hotspot)"
+
+config WIFI_ROLE_STA
+    bool "Station (join a network)"
+
+endchoice
+
+comment "--- Access Point settings (AP role only) ---"
+    depends on WIFI_ROLE_AP
+
+config AP_SSID
+    string "Hotspot SSID"
+    default "EyeTracker"
+    depends on WIFI_ROLE_AP
+    help
+        Name of the Wi-Fi hotspot this device will broadcast.
+
+config AP_PASSWORD
+    string "Hotspot password (min 8 chars, or blank for open)"
+    default "changeme123"
+    depends on WIFI_ROLE_AP
+
+config AP_MAX_CONN
+    int "Maximum simultaneous clients"
+    default 4
+    range 1 10
+    depends on WIFI_ROLE_AP
+
+comment "--- Station settings (STA role only) ---"
+    depends on WIFI_ROLE_STA
+
+config WIFI_SSID
+    string "SSID to join"
+    default "EyeTracker"
+    depends on WIFI_ROLE_STA
+    help
+        SSID of the network to connect to (typically the AP ESP32's hotspot).
+
+config WIFI_PASSWORD
+    string "Password"
+    default "changeme123"
+    depends on WIFI_ROLE_STA
+
+endmenu

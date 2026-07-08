@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Tracking Exam</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* ---- Phase bar ---- */
+        #phase-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #2a2a2a;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        #phase-bar h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ccc;
+            letter-spacing: 0.03em;
+        }
+
+        #phase-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 5px 14px;
+            border-radius: 20px;
+            transition: background 0.3s, color 0.3s;
+        }
+        #phase-badge.idle      { background: #2a2a2a; color: #888; }
+        #phase-badge.calibrating { background: #332800; color: #f5a623; }
+        #phase-badge.ready     { background: #0d2b1a; color: #2ecc71; }
+        #phase-badge.exam      { background: #1a0a0a; color: #e74c3c; }
+        #phase-badge.done      { background: #0a1a2a; color: #3498db; }
+
+        #phase-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: currentColor;
+        }
+        #phase-badge.exam #phase-dot { animation: blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ---- Main layout ---- */
+        .page { max-width: 1300px; margin: 0 auto; padding: 20px; }
+
+        /* ---- Streams ---- */
+        .streams {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) { .streams { grid-template-columns: 1fr; } }
+
+        .stream-card {
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #2a2a2a;
+        }
+        .stream-card img {
+            width: 100%;
+            display: block;
+            aspect-ratio: 4/3;
+            background: #000;
+            object-fit: contain;
+        }
+        .stream-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #555; flex-shrink: 0;
+        }
+        .dot.on  { background: #2ecc71; animation: pulse 2s infinite; }
+        .dot.off { background: #e74c3c; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .stream-label { font-weight: 600; color: #bbb; }
+        .stream-error  { color: #e74c3c; font-size: 0.75rem; margin-left: auto; }
+
+        /* ---- Panels ---- */
+        .panel {
+            background: #1a1a1a;
+            border-radius: 10px;
+            border: 1px solid #2a2a2a;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .panel.visible { display: block; }
+        .panel h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: #aaa; }
+
+        /* ---- Control row ---- */
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* ---- Buttons ---- */
+        .btn {
+            padding: 9px 20px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:hover:not(:disabled) { opacity: 0.85; }
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary  { background: #0066cc; color: #fff; }
+        .btn-danger   { background: #c0392b; color: #fff; }
+        .btn-success  { background: #27ae60; color: #fff; }
+        .btn-warning  { background: #d68910; color: #fff; }
+        .btn-ghost    { background: #2a2a2a; color: #aaa; }
+
+        /* ---- Toggle ---- */
+        .toggle-row { display: flex; align-items: center; gap: 10px; }
+        .toggle {
+            position: relative; width: 42px; height: 22px;
+            flex-shrink: 0;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: #333; border-radius: 22px; cursor: pointer; transition: background 0.2s;
+        }
+        .toggle-track::after {
+            content: ''; position: absolute;
+            width: 16px; height: 16px; top: 3px; left: 3px;
+            background: #fff; border-radius: 50%; transition: transform 0.2s;
+        }
+        .toggle input:checked + .toggle-track { background: #0066cc; }
+        .toggle input:checked + .toggle-track::after { transform: translateX(20px); }
+
+        /* ---- Calibration panel ---- */
+        #cal-panel { border-color: #443300; }
+        #cal-panel h2 { color: #f5a623; }
+
+        #cal-target-name {
+            font-size: 1.5rem; font-weight: 700; color: #f5a623; margin-bottom: 6px;
+        }
+        #cal-progress-label {
+            font-size: 0.8rem; color: #888; margin-bottom: 12px;
+        }
+        .progress-bar {
+            height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; margin-bottom: 16px;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 3px; transition: width 0.1s linear;
+            background: linear-gradient(90deg, #f5a623, #ffcc00);
+        }
+        #cal-samples { font-size: 0.8rem; color: #666; }
+
+        /* ---- Calibration dot grid preview ---- */
+        #cal-dot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            width: 120px;
+            margin-bottom: 16px;
+        }
+        .grid-dot {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #2a2a2a; display: flex; align-items: center; justify-content: center;
+            font-size: 0.6rem; color: #555;
+        }
+        .grid-dot.done    { background: #27ae60; color: #fff; }
+        .grid-dot.current { background: #f5a623; color: #000; animation: blink 0.8s infinite; }
+
+        /* ---- Exam panel ---- */
+        #exam-panel { border-color: #1a1a1a; }
+
+        /* ---- Live proficiency badge ---- */
+        #live-proficiency {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            background: #1a0a0a;
+            border: 1px solid #3d1010;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+        #live-proficiency.visible { display: flex; }
+        #prof-pct {
+            font-size: 2.8rem; font-weight: 800; color: #e74c3c;
+            line-height: 1;
+            min-width: 80px;
+        }
+        .prof-meta { font-size: 0.8rem; color: #888; }
+        .prof-meta strong { color: #ccc; display: block; font-size: 0.9rem; }
+        #prof-elapsed { font-size: 0.75rem; color: #555; margin-top: 4px; }
+
+        /* ---- Results panel ---- */
+        #results-panel { border-color: #0a1a2a; }
+        #results-panel h2 { color: #3498db; }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .result-card {
+            background: #111;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+        .result-card .value {
+            font-size: 2rem; font-weight: 800; color: #3498db; line-height: 1;
+        }
+        .result-card .label {
+            font-size: 0.75rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        #proficiency-score .value {
+            font-size: 2.8rem;
+        }
+        #proficiency-score .value.good    { color: #2ecc71; }
+        #proficiency-score .value.ok      { color: #f5a623; }
+        #proficiency-score .value.poor    { color: #e74c3c; }
+
+        /* ---- Footer ---- */
+        footer {
+            text-align: center; padding: 24px; color: #444; font-size: 0.8rem;
+            border-top: 1px solid #1a1a1a; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="phase-bar">
+    <h1>Eye Tracking Exam</h1>
+    <div id="phase-badge" class="idle">
+        <span id="phase-dot"></span>
+        <span id="phase-label">Idle</span>
+    </div>
+</div>
+
+<div class="page">
+
+    <!-- Camera feeds -->
+    <div class="streams">
+        <div class="stream-card">
+            <img src="/stream/left" alt="Eye camera">
+            <div class="stream-footer">
+                <div class="dot" id="left-dot"></div>
+                <span class="stream-label">Eye Camera</span>
+                <span class="stream-error" id="left-error"></span>
+            </div>
+        </div>
+        <div class="stream-card">
+            <img src="/stream/right" alt="Forward camera">
+            <div class="stream-footer">
+                <div class="dot" id="right-dot"></div>
+                <span class="stream-label">Forward Camera</span>
+                <span class="stream-error" id="right-error"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- General controls (always visible) -->
+    <div class="panel visible" id="main-controls">
+        <div class="controls">
+            <div class="toggle-row">
+                <span style="font-size:0.875rem">Denoise</span>
+                <label class="toggle">
+                    <input type="checkbox" id="denoise-toggle">
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+
+            <button class="btn btn-ghost" id="record-btn">⏺ Start Recording</button>
+            <span id="record-status" style="font-size:0.8rem;color:#555"></span>
+
+            <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-warning" id="calibrate-btn">Calibrate</button>
+                <button class="btn btn-success" id="exam-start-btn" disabled>Start Exam</button>
+                <button class="btn btn-danger"  id="exam-stop-btn"  style="display:none">Stop Exam</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calibration panel -->
+    <div class="panel" id="cal-panel">
+        <h2>Calibration in progress</h2>
+        <div id="cal-dot-grid">
+            <!-- filled by JS -->
+        </div>
+        <div id="cal-target-name">—</div>
+        <div id="cal-progress-label">Point 0 of 9</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="cal-progress-fill" style="width:0%"></div>
+        </div>
+        <div id="cal-samples">Samples collected: 0</div>
+        <div class="controls" style="margin-top:14px">
+            <button class="btn btn-ghost" id="cal-abort-btn">Abort calibration</button>
+        </div>
+        <p style="font-size:0.78rem;color:#555;margin-top:12px">
+            Hold the calibration board at the configured distance and point to each marked corner
+            when prompted. The system advances automatically after the hold time.
+        </p>
+    </div>
+
+    <!-- Live proficiency badge (shown during exam) -->
+    <div id="live-proficiency">
+        <div id="prof-pct">—%</div>
+        <div>
+            <div class="prof-meta"><strong id="prof-on-target">—</strong> frames on target</div>
+            <div id="prof-elapsed">0s elapsed</div>
+        </div>
+        <div style="margin-left:auto;font-size:0.75rem;color:#555">
+            Tracking<br>proficiency
+        </div>
+    </div>
+
+    <!-- Results panel (shown after exam) -->
+    <div class="panel" id="results-panel">
+        <h2>Exam Results</h2>
+        <div class="results-grid">
+            <div class="result-card" id="proficiency-score">
+                <div class="value" id="res-proficiency">—</div>
+                <div class="label">Proficiency</div>
+            </div>
+            <div class="result-card">
+                <div class="value" id="res-duration">—</div>
+                <div class="label">Duration (s)</div>
+            </div>
+            <div class="result-card">
+                <div class="value" id="res-frames-on">—</div>
+                <div class="label">Frames on target</div>
+            </div>
+            <div class="result-card">
+                <div class="value" id="res-frames-total">—</div>
+                <div class="label">Total frames</div>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="btn btn-success" id="new-exam-btn">New Exam</button>
+            <button class="btn btn-warning" id="recalibrate-btn">Recalibrate</button>
+        </div>
+    </div>
+
+</div>
+
+<footer>Eye Tracking Exam System &mdash; http://localhost:5000</footer>
+
+<script>
+// ---- State ----
+let currentPhase = 'idle';
+let isRecording = false;
+let recordTimer = null;
+let recordSeconds = 0;
+
+// ---- DOM references ----
+const phaseBadge     = document.getElementById('phase-badge');
+const phaseLabel     = document.getElementById('phase-label');
+const denoiseToggle  = document.getElementById('denoise-toggle');
+const recordBtn      = document.getElementById('record-btn');
+const recordStatus   = document.getElementById('record-status');
+const calibrateBtn   = document.getElementById('calibrate-btn');
+const examStartBtn   = document.getElementById('exam-start-btn');
+const examStopBtn    = document.getElementById('exam-stop-btn');
+const calPanel       = document.getElementById('cal-panel');
+const calAbortBtn    = document.getElementById('cal-abort-btn');
+const calTargetName  = document.getElementById('cal-target-name');
+const calProgressLbl = document.getElementById('cal-progress-label');
+const calProgressFill= document.getElementById('cal-progress-fill');
+const calSamples     = document.getElementById('cal-samples');
+const calDotGrid     = document.getElementById('cal-dot-grid');
+const liveProficiency= document.getElementById('live-proficiency');
+const profPct        = document.getElementById('prof-pct');
+const profOnTarget   = document.getElementById('prof-on-target');
+const profElapsed    = document.getElementById('prof-elapsed');
+const resultsPanel   = document.getElementById('results-panel');
+
+// ---- Phase names ----
+const PHASE_LABELS = {
+    idle:        'Idle',
+    calibrating: 'Calibrating',
+    ready:       'Ready',
+    exam:        'Exam running',
+    done:        'Done',
+};
+
+// ---- Build calibration dot grid (3×3 = 9 points) ----
+const CAL_ORDER = [
+    'center','top-left','top-center','top-right',
+    'left-center','right-center',
+    'bottom-left','bottom-center','bottom-right'
+];
+function buildCalGrid() {
+    calDotGrid.innerHTML = '';
+    const GRID_LABELS = {
+        'top-left':'TL','top-center':'TC','top-right':'TR',
+        'left-center':'L','center':'C','right-center':'R',
+        'bottom-left':'BL','bottom-center':'BC','bottom-right':'BR',
+    };
+    // 3×3 row-major visual order
+    const VISUAL = [
+        'top-left','top-center','top-right',
+        'left-center','center','right-center',
+        'bottom-left','bottom-center','bottom-right',
+    ];
+    VISUAL.forEach(label => {
+        const d = document.createElement('div');
+        d.className = 'grid-dot';
+        d.id = 'grid-dot-' + label;
+        d.textContent = GRID_LABELS[label] || label[0].toUpperCase();
+        calDotGrid.appendChild(d);
+    });
+}
+buildCalGrid();
+
+function updateCalGrid(currentIndex, totalPoints) {
+    const doneLabels = CAL_ORDER.slice(0, currentIndex);
+    const currentLabel = CAL_ORDER[currentIndex] || null;
+    document.querySelectorAll('.grid-dot').forEach(d => {
+        d.classList.remove('done', 'current');
+        const name = d.id.replace('grid-dot-', '');
+        if (doneLabels.includes(name)) d.classList.add('done');
+        else if (name === currentLabel) d.classList.add('current');
+    });
+}
+
+// ---- Apply phase ----
+function applyPhase(phase) {
+    if (phase === currentPhase) return;
+    currentPhase = phase;
+
+    phaseBadge.className = phase;
+    phaseLabel.textContent = PHASE_LABELS[phase] || phase;
+
+    // Calibration panel
+    calPanel.classList.toggle('visible', phase === 'calibrating');
+
+    // Live proficiency
+    liveProficiency.classList.toggle('visible', phase === 'exam');
+
+    // Results panel
+    resultsPanel.classList.toggle('visible', phase === 'done');
+    if (phase === 'done') showResults();
+
+    // Buttons
+    calibrateBtn.disabled = !['idle','ready'].includes(phase);
+    calibrateBtn.style.display = phase === 'calibrating' ? 'none' : '';
+
+    examStartBtn.style.display = ['ready', 'done'].includes(phase) ? '' : 'none';
+    examStartBtn.disabled = phase !== 'ready';
+    examStopBtn.style.display  = phase === 'exam' ? '' : 'none';
+
+    const recalBtn = document.getElementById('recalibrate-btn');
+    if (recalBtn) recalBtn.style.display = phase === 'done' ? '' : 'none';
+}
+
+// ---- Status polling (1 Hz) ----
+async function pollStatus() {
+    try {
+        const res = await fetch('/api/status');
+        const s = await res.json();
+
+        // Camera indicators
+        setDot('left-dot',  s.left_connected,  document.getElementById('left-error'),  s.left_error);
+        setDot('right-dot', s.right_connected, document.getElementById('right-error'), s.right_error);
+
+        applyPhase(s.phase);
+
+        // Live proficiency (during exam)
+        if (s.phase === 'exam' && s.live) {
+            profPct.textContent = s.live.proficiency_pct.toFixed(1) + '%';
+            profOnTarget.textContent = s.live.frames_on_target.toLocaleString();
+            profElapsed.textContent  = s.live.elapsed_s + 's elapsed';
+        }
+    } catch (_) {}
+}
+
+function setDot(dotId, connected, errorEl, errorMsg) {
+    const dot = document.getElementById(dotId);
+    if (!dot) return;
+    dot.classList.toggle('on',  connected);
+    dot.classList.toggle('off', !connected);
+    errorEl.textContent = connected ? '' : (errorMsg || 'No signal');
+}
+
+// ---- Calibration polling (4 Hz while calibrating) ----
+let calPollInterval = null;
+
+function startCalPoll() {
+    if (calPollInterval) return;
+    calPollInterval = setInterval(pollCalibration, 250);
+}
+function stopCalPoll() {
+    if (calPollInterval) clearInterval(calPollInterval);
+    calPollInterval = null;
+}
+
+async function pollCalibration() {
+    if (currentPhase !== 'calibrating') { stopCalPoll(); return; }
+    try {
+        const res = await fetch('/api/calibrate/status');
+        const s = await res.json();
+        if (!s.active) { stopCalPoll(); return; }
+
+        const idx  = s.current_index;
+        const total = s.total_points;
+        const label = s.current_label || '—';
+
+        calTargetName.textContent  = label.replace(/-/g, ' ');
+        calProgressLbl.textContent = `Point ${idx + 1} of ${total}`;
+        const timePct = Math.min(100, (s.elapsed_s / s.hold_s) * 100);
+        calProgressFill.style.width = timePct + '%';
+        calSamples.textContent = `Samples collected: ${s.samples_collected}`;
+        updateCalGrid(idx, total);
+    } catch (_) {}
+}
+
+// ---- Results display ----
+async function showResults() {
+    try {
+        const res = await fetch('/api/results');
+        const r = await res.json();
+        if (!r || !('proficiency_pct' in r)) return;
+
+        document.getElementById('res-proficiency').textContent   = r.proficiency_pct.toFixed(1) + '%';
+        document.getElementById('res-duration').textContent      = r.duration_s;
+        document.getElementById('res-frames-on').textContent     = r.frames_on_target.toLocaleString();
+        document.getElementById('res-frames-total').textContent  = r.frames_total.toLocaleString();
+
+        const el = document.getElementById('res-proficiency');
+        el.classList.remove('good', 'ok', 'poor');
+        if (r.proficiency_pct >= 70)      el.classList.add('good');
+        else if (r.proficiency_pct >= 40) el.classList.add('ok');
+        else                              el.classList.add('poor');
+    } catch (_) {}
+}
+
+// ---- Button handlers ----
+denoiseToggle.addEventListener('change', async e => {
+    await fetch('/api/denoise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: e.target.checked }),
+    });
+});
+
+recordBtn.addEventListener('click', async () => {
+    const action = isRecording ? 'stop' : 'start';
+    const res = await fetch('/api/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+    });
+    const data = await res.json();
+    isRecording = data.recording;
+
+    if (isRecording) {
+        recordBtn.textContent = '⏹ Stop Recording';
+        recordBtn.classList.add('btn-danger');
+        recordBtn.classList.remove('btn-ghost');
+        recordSeconds = 0;
+        recordTimer = setInterval(() => {
+            recordSeconds++;
+            recordStatus.textContent = `${recordSeconds}s`;
+        }, 1000);
+    } else {
+        recordBtn.textContent = '⏺ Start Recording';
+        recordBtn.classList.remove('btn-danger');
+        recordBtn.classList.add('btn-ghost');
+        clearInterval(recordTimer);
+        recordStatus.textContent = 'Saved';
+        setTimeout(() => { recordStatus.textContent = ''; }, 3000);
+    }
+});
+
+calibrateBtn.addEventListener('click', async () => {
+    const res = await fetch('/api/calibrate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board_distance_cm: 30, hold_seconds: 2 }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        applyPhase('calibrating');
+        startCalPoll();
+    }
+});
+
+calAbortBtn.addEventListener('click', async () => {
+    await fetch('/api/calibrate/abort', { method: 'POST' });
+    stopCalPoll();
+    applyPhase('idle');
+});
+
+examStartBtn.addEventListener('click', async () => {
+    const res = await fetch('/api/exam/start', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) applyPhase('exam');
+});
+
+examStopBtn.addEventListener('click', async () => {
+    const res = await fetch('/api/exam/stop', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+        applyPhase('done');
+        showResults();
+    }
+});
+
+document.getElementById('new-exam-btn').addEventListener('click', async () => {
+    const res = await fetch('/api/exam/start', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) applyPhase('exam');
+});
+
+document.getElementById('recalibrate-btn').addEventListener('click', async () => {
+    const res = await fetch('/api/calibrate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board_distance_cm: 30, hold_seconds: 2 }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        applyPhase('calibrating');
+        startCalPoll();
+    }
+});
+
+// ---- Init ----
+setInterval(pollStatus, 1000);
+pollStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# Wi-Fi role: one ESP32 must be built as AP, the other as STA.
+# The eye camera is always the STA unit — it joins the forward camera's hotspot.
+# To build as AP instead: swap these two blocks (only one WIFI_ROLE_* may be set).
+CONFIG_WIFI_ROLE_STA=y
+CONFIG_WIFI_SSID="EyeTracker"
+CONFIG_WIFI_PASSWORD="changeme123"
+# CONFIG_WIFI_ROLE_AP=y
+# CONFIG_AP_SSID="EyeTracker"
+# CONFIG_AP_PASSWORD="changeme123"
+
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_OFFSET=0x10000
+
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+CONFIG_SPIRAM_SPEED_80M=y
