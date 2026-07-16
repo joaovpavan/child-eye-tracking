@@ -1,5 +1,3 @@
-*[Leia isso em português](README.pt-br.md)*
-
 # Eye Tracking Obiquos
 
 A DIY eye-tracking glasses project built on two ESP32 cameras and a Python
@@ -15,15 +13,17 @@ glasses frame, streaming to a PC over their own private Wi-Fi network, with
 all the gaze estimation, calibration, and recording done in Python on the
 PC side — no cloud, no proprietary hardware.
 
+![](images/oculos_obiquos.png)
+
 ### Pipeline
 
 ```
-┌──────────────┐      ┌──────────────┐      ┌──────────────────────┐
-│  Eye camera  │      │   Forward    │      │   PC postprocessing  │
+┌──────────────┐      ┌──────────────┐       ┌──────────────────────┐
+│  Eye camera  │      │   Forward    │       │   PC postprocessing  │
 │  (ESP32,     │─────▶│   camera     │─────▶│                      │
-│   STA unit)  │ Wi-Fi│ (ESP32-S3,   │ Wi-Fi│ • Pupil detection    │
-│              │      │  AP unit)    │      │ • Calibration        │
-└──────────────┘      └──────────────┘      │ • Gaze → forward     │
+│   STA unit)  │ Wi-Fi│ (ESP32-S3,   │ Wi-Fi │ • Pupil detection    │
+│              │      │  AP unit)    │       │ • Calibration        │
+└──────────────┘      └──────────────┘       │ • Gaze → forward     │
                                              │   angle mapping      │
                                              │ • Web viewer + rec.  │
                                              └──────────────────────┘
