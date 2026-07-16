@@ -1,14 +1,14 @@
 # Eye Tracking Obiquos
 
-A DIY eye-tracking glasses project built on two ESP32 cameras and a Python
+A eye-tracking glasses project built on two ESP32 cameras and a Python
 postprocessing pipeline. One camera faces the eye, the other faces forward;
 both stream MJPEG over Wi-Fi to a PC, which estimates where the eye is
 looking and maps that gaze onto the forward-facing view in real time.
 
 ## Overview
 
-Commercial eye trackers are expensive and closed. This project explores a
-low-cost alternative: two off-the-shelf ESP32 camera modules mounted on a
+Commercial eye trackers are expensive and closed. This project explores an
+alternative: two ESP32 camera modules mounted on a
 glasses frame, streaming to a PC over their own private Wi-Fi network, with
 all the gaze estimation, calibration, and recording done in Python on the
 PC side — no cloud, no proprietary hardware.
@@ -111,14 +111,4 @@ than editing the checked-in `sdkconfig.defaults`.
 
 See [`requirements.txt`](requirements.txt) for the full Python dependency list.
 
-## Contributing
 
-Issues and pull requests are welcome. For firmware changes, please test on
-real hardware before submitting — QEMU in `.devcontainer/` covers build
-verification but not camera/Wi-Fi behavior.
-
-## License
-
-MIT — see [LICENSE](LICENSE). This covers the code in this repository; it does
-not relicense third-party dependencies (e.g. ESP-IDF managed components), which
-retain their own licenses.
